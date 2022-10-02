@@ -1,0 +1,292 @@
+---
+author: "Manuel Alejandro Costan Macareño"
+date: "02/10/2022"
+title: "apendice02 -- Codigos implementados"
+date: "02/10/2017"
+documentclass: book
+forprint: true  # true: imprime a dos caras, false: libro digital
+fontsize: 12pt # 10pt,11pt
+geometry: margin = 2.5cm 
+bibliography: ["bib/library.bib", "bib/paquetes.bib"]
+# metodobib -> true: natbib (descomentar: citation_package: natbib) 
+#           -> false: pandoc (comentar: citation_package: natbib)
+metodobib: true
+#natbib: plainnat, abbrvnat, unsrtnat
+biblio-style: "plainnat"
+#Método 2 (pandoc): descomente una línea de las 2 siguientes en caso de usarlo
+#csl: methods-in-ecology-and-evolution.csl      # no numera mejor en las citas
+csl: acm-sig-proceedings-long-author-list.csl  # numera peor en las citas
+link-citations: yes
+output: 
+  pdf_document:
+    keep_tex: no
+    number_sections: yes
+    citation_package: natbib  # comentado usa: pandoc-citeproc
+    #toc: yes
+    fig_caption: yes
+    template: latex/templateMemoriaTFE.tex
+    includes:
+      #before_body: portadas/latex_paginatitulo_modTFE.tex
+      #in_header: latex/latex_preambulo.tex
+      #after_body: latex/latex_antes_enddoc.tex
+---
+
+
+```{r include=FALSE}
+knitr::opts_chunk$set(fig.path = 'figurasR/',
+                      echo = FALSE, warning = FALSE, message = FALSE,
+                      fig.pos="H",fig.align="center",out.width="95%",
+                      cache=FALSE)
+
+```
+
+
+<!-- \setcounter{chapter}{2} -->
+<!-- \setcounter{chapter}{2} escribir 2 para capítulo 3  -->
+<!-- \pagenumbering{arabic} -->
+
+
+\ifdefined\ifprincipal
+\else
+\setlength{\parindent}{1em}
+\pagestyle{fancy}
+\setcounter{tocdepth}{4}
+\tableofcontents
+<!-- \nocite{*} -->
+\fi
+
+\ifdefined\ifdoblecara
+\fancyhead{}{}
+\fancyhead[LE,RO]{\scriptsize\rightmark}
+\fancyfoot[LO,RE]{\scriptsize\slshape \leftmark}
+\fancyfoot[C]{}
+\fancyfoot[LE,RO]{\footnotesize\thepage}
+\else
+\fancyhead{}{}
+\fancyhead[RO]{\scriptsize\rightmark}
+\fancyfoot[LO]{\scriptsize\slshape \leftmark}
+\fancyfoot[C]{}
+\fancyfoot[RO]{\footnotesize\thepage}
+\fi
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+# Apéndice B: Codigos implementados
+
+
+##  Código del Fichero: capitulo05.Rmd
+\tiny
+```{r echo=TRUE, eval=FALSE}
+
+options(readr.show_col_types = FALSE) #to quiet the full column specification
+## Importing data from a CVS file
+data_WebScraping <- suppressMessages(read_csv("WebScraping.csv",
+                        locale = locale(encoding = "ISO-8859-1", 
+                        asciify = TRUE), na = "NA"))
+data_WebScraping <- select(data_WebScraping, -1, -stringAsFactors) # to display on the screen
+
+datos <- data_WebScraping # to modify
+data_WebScraping <- data_WebScraping %>% rename ("power (CV)" = colnames(data_WebScraping)[5], "price (€)" = colnames(data_WebScraping)[6])
+#view(data_WebScraping)
+#----------------------------------------------------------------------------- CAPITULO_05 --------------------------------------------------------------------------------------------------
+#resume the number of NA
+  resume = data.frame(t(colSums(is.na(datos)))) #to obtain for each column the number of empty data (NA)
+  resume = cbind(resume, dim(datos)[1]) #we can see the total number of data (row)
+
+  datos <- datos[!is.na(datos$price), ] #omit rows with NA in specific column of data frame
+  datos <- datos[!is.na(datos$year), ]
+  datos <- datos[!is.na(datos$km), ]
+
+  resume1 = data.frame(t(colSums(is.na(datos))))
+  resume1 = cbind(resume1, dim(datos)[1])
+  resume = rbind(resume, resume1)
+
+  rownames(resume) <- c("Con NAs","Quitando NAs") 
+  colnames(resume)[9] <- "Total Datos"
+  view(resume) #cuadro resumen de quitar NA
+
+
+#create variable (years and years.category)
+  date <- Sys.Date() ## [1] "2022-07-11"
+  date <- as.numeric(format(date,'%Y'))
+  datos <- datos %>% mutate(years = date-year) #creamos la columna con los años que tiene el camion funcionando
+
+  datos$years.category <- cut(datos$years, breaks = c(-1, 3, 15, 30, Inf), labels = c("New", "Medium", "Old", "Very old")) # Convertir var numerica "years" en categorica usando puntos de corte
+
+datos <- datos %>%  filter(years>-1 & years<100)
+
+  sapply(datos,class)  #we can see the different number of classes
+  summary(datos)
+  resume04<- rbind(describe(datos$power), describe(datos$price), describe(datos$km), describe(datos$years)) #similar as summary but it show the result as a dataframe
+  rownames(resume04) <- c("Power", "Price", "Km", "Year" ) 
+  view(resume04)
+#-------------------------------------------------------#
+  rm(date, resume1)   #elimino variable no utilizadas
+
+##---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+\normalsize
+
+
+  
+##  Código del Fichero: capitulo06.Rmd  
+\tiny
+```{r echo=TRUE, eval=FALSE}
+#----------------------------------------------------------------------------- CAPITULO_06 --------------------------------------------------------------------------------------------------
+
+#----------------------DETECTION OF OUTLIERS---------------------------------
+### https://universeofdatascience.com/how-to-remove-outliers-from-data-in-r/
+### https://www.adictosaltrabajo.com/2019/11/28/deteccion-y-reemplazo-de-outliers-con-r/
+#https://aakinshin.net/posts/harrell-davis-double-mad-outlier-detector/
+#https://www.reneshbedre.com/blog/find-outliers.html
+#https://universeofdatascience.com/how-to-remove-outliers-from-data-in-r/
+
+---------------------------------------------------#
+  #dim(datos) ## la dimension es de [1] filas=4615 y columnas=2
+  AGE <- unique(datos$years) # obtenemos los AGEs por los que partir el dataframe
+
+#get threshold values for outliers
+  list_quantiles <- tapply(datos$price, datos$years, quantile)
+  Q1s <- sapply(1:length(AGE), function(i) list_quantiles[[i]][2])
+  Q3s <- sapply(1:length(AGE), function(i) list_quantiles[[i]][4])
+  IQRs <- tapply(datos$price, datos$years, IQR)
+  minis <- sapply(1:length(AGE), function(i) list_quantiles[[i]][1])
+  maxis <- sapply(1:length(AGE), function(i) list_quantiles[[i]][5])
+  Mes <- sapply(1:length(AGE), function(i) list_quantiles[[i]][3]) #median
+  MAD <- tapply(datos$price, datos$years, mad)
+
+#Intercuartil
+  Lowers <- Q1s - 1.5*IQRs #valor atípico leve dista --> q < Q1 – 1,5 · IQR o bien q > Q3 + 1,5 · IQR
+  Uppers <- Q3s + 1.5*IQRs 
+
+#Hampel filter -->MAD
+  lower_bound <- Mes - 3 * MAD
+  Upper_bound <- Mes + 3 * MAD
+
+#for to collect the data that pass the filter
+  list_year <- split(datos, datos$years)
+  data_no_outlier <- NULL
+  data_no_outlier_Mad <- NULL
+  for (i in 1:length(AGE)){
+    out <- subset(list_year[[i]], list_year[[i]]$price > Lowers[i] & list_year[[i]]$price < Uppers[i]) #Intercuartile range
+    data_no_outlier <- rbind(data_no_outlier, out)
+    #data_no_outlier <- rbind(out)
+    outMad <- subset(list_year[[i]], list_year[[i]]$price > lower_bound[i] & list_year[[i]]$price < Upper_bound[i]) #Hampel filter -->MAD
+    data_no_outlier_Mad<- rbind(data_no_outlier_Mad, outMad)
+  }
+
+#dim(data_no_outlier) ## [1] 4297    2
+#dim(data_no_outlier_Mad) ## [1] 4188    2
+
+  #------------------------------------------------------------------------------------------  
+#elimino
+  rm(AGE, i, IQRs, lower_bound, Lowers, MAD, maxis, Mes, minis, Q1s, Q3s, Upper_bound, Uppers, out, outMad)
+#---------------------------------------------------------------------------------------------------------------------------------------------------
+  
+#grafico
+  par(mfrow = c(1,1))
+  #boxplot(data_no_outlier$price~data_no_outlier$years)
+  boxplot(data_no_outlier_Mad$price~data_no_outlier_Mad$years,outline=FALSE)
+  boxplot(data_no_outlier_Mad$price~data_no_outlier_Mad$years.category,outline=FALSE)
+##---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+\normalsize
+
+
+  
+##  Código del Fichero: capitulo07.Rmd  
+\tiny
+```{r echo=TRUE, eval=FALSE}
+#----------------------------------------------------------------------------- CAPITULO_07 --------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------filtro datos segun una condicion y almaceno valores en listas---------------------------------------------------------
+#agrupo por paises sin hacer filtro
+  df_brand <- data_no_outlier_Mad %>% group_by(brand) %>% 
+   summarise( n=n(), mean_year = mean(year), mean_years= mean(years), mean_price = ceiling(mean(km)), median_price=median(km), variance_price = var(km), sd_price = sd(km)) %>% arrange(n)
+  df_country <- data_no_outlier_Mad %>% group_by(country) %>% 
+   summarise( n=n(), mean_year = ceiling(mean(year)), mean_years= ceiling(mean(years)), mean_price = ceiling(mean(km)), median_price=median(km), variance_price = var(km), sd_price = sd(km)) %>% arrange(n)
+
+#calculo las variables, elimina aquellas que no cumplan condiciones propuestas, como el no tener mas de dos valores por marca, por pais, 
+  # uno agrupa por paises y otro por marcas y dice cuanto hay por cada uno, ademas saca la media de km y la suma total
+  df_country <- data_no_outlier_Mad %>% group_by(country) %>% 
+   summarise( n=n(), mean_year = ceiling(mean(year)), mean_years= ceiling(mean(years)), mean_price = ceiling(mean(km)), median_price=median(km), variance_price = var(km), sd_price = sd(km)) %>% 
+   filter(n>2) %>% arrange(n)
+  df_brand <- data_no_outlier_Mad %>% group_by(brand) %>% 
+   summarise( n=n(), mean_year = mean(year), mean_years= mean(years), mean_price = ceiling(mean(km)), median_price=median(km), variance_price = var(km), sd_price = sd(km)) %>% filter(n>2) %>% arrange(n)
+
+#agrupa en un vector aquellos paises que tengan mas de dos cabezas tractoras y agrupa en un vector aquellas marcas que tengan mas de dos cabezas tractoras
+  countries <- as.vector(data.frame(t(df_country[,1])))
+  brands <- as.vector(data.frame(t(df_brand[,1])))
+
+#en data_no_outlier_Mad solo mantendremos los valores que cumplan las dos condiciones anteriormente planteadas... y veo las diferencia de como cambian las dimensiones
+  #dim(data_no_outlier_Mad) # 4188 10
+  data_no_outlier_Mad <- filter(data_no_outlier_Mad, country %in% countries, brand %in% brands)
+  #dim(data_no_outlier_Mad) # 4173 10
+
+#summary as a dataframe of power, country, years and brand
+  resume07<- rbind(describe(data_no_outlier_Mad$power), describe(data_no_outlier_Mad$price), describe(data_no_outlier_Mad$km), describe(data_no_outlier_Mad$years)) 
+  rownames(resume07) <- c("Power", "Price", "Km", "Year" )
+  
+
+#separo en una lista segun power, country, years y brand
+  list_power <- split(data_no_outlier_Mad, data_no_outlier_Mad$power)
+  list_country <- split(data_no_outlier_Mad, data_no_outlier_Mad$country) 
+  list_years <- split(data_no_outlier_Mad, data_no_outlier_Mad$years) 
+  list_brand <- split(data_no_outlier_Mad, data_no_outlier_Mad$brand)
+
+
+#del cuadro que esta, para el analisis, sacamos un resumen de cada variable y la almaceno en la lista_resumen:
+  df_year <- data_no_outlier_Mad %>% group_by(years) %>% summarise( n=n(), mean_price = ceiling(mean(price)))
+  yearss = df_year[,1:2]
+  brands = df_brand[,1:2]
+  countries = df_country[,1:2]
+  years.categories <- data_no_outlier_Mad %>% group_by(years.category) %>% summarise( n=n()) %>% arrange(n)
+  lista_resumen <- list(yearss, brands, countries, years.categories) #accedo a este lista_resumen[[2]]
+  rm(yearss, countries, years.categories, brands)
+#----------------------------------------------------------------    
+#plots
+  ##Bar graph  
+  plot1<-ggplot(df_brand, aes(x = brand, y = n, fill = brand)) + geom_col() + geom_text(aes(label = n), vjust = 1.5, colour = "black") #bar graphs numbers of cabezas tractoras for every brand
+  plot2<-ggplot(df_brand, aes(x = brand, y = mean_years, colour = brand)) + geom_point() #bar graphs edad promedio of cabezas tractoras for every brand
+  plot1+plot2       
+  
+  plot3<-ggplot(df_country, aes(x = country, y = n, fill = country)) + geom_col() + geom_text(aes(label = n), vjust = 1.5, colour = "black") # numbers of cabezas tractoras for every country
+  plot4<-ggplot(df_country, aes(x = country, y = mean_years, colour = country)) + geom_point() #bar graphs edad promedio of cabezas tractoras for every country
+  plot3+plot4 
+  
+  data_no_outlier_Mad %>% 
+    ggplot() +
+    aes(x = brand, fill= country) +
+    geom_bar( color="black") +
+    facet_grid(country ~ .) +
+    geom_text(aes(label = ..count..), stat = "count", vjust = -0.2, colour = "black")
+  
+  ##scatter plots y grafico de dispersion
+  ggplot(data_no_outlier_Mad, aes(x = years, y = price, colour = years.category)) +
+    geom_point()      
+  
+  ##Histogram
+  ggplot(data_no_outlier_Mad, aes(x = power)) +
+    geom_histogram(fill = "white", colour = "black") +
+    geom_density() +
+    facet_grid(years.category ~ ., scales = "free") 
+  
+```
+\normalsize
+
+
+
+##  Código del Fichero: capitulo08.Rmd
+\tiny
+```{r echo=TRUE, eval=FALSE}
+#----------------------------------------------------------------------------- CAPITULO_08 --------------------------------------------------------------------------------------------------
+#aqui ira la parte de modelizacion, las cuales estan ahora en prueba 08 y prueba 09
+
+
+```
+\normalsize
+
+
+
+
+
+

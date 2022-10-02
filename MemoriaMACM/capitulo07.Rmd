@@ -1,0 +1,257 @@
+---
+author: "Manuel Alejandro Costan Macareño"
+date: "10/08/2022"
+title: "Capitulo07"
+subtitle: "Análisis exploratorio (gráficos violín, box plot, histograma y tablas estadísticas)"
+documentclass: book
+forprint: false  # true: imprime a dos caras, false: libro digital
+fontsize: 12pt # 10pt,11pt
+geometry: margin = 2.5cm 
+bibliography: ["bib/library.bib", "bib/paquetes.bib"]
+metodobib: true  # true: natbib (descomentar: citation_package: natbib) 
+#                  false: pandoc (comentar: citation_package: natbib)
+#natbib: plainnat, abbrvnat, unsrtnat
+biblio-style: "plainnat"
+#Método 2 (pandoc): descomente una línea de las 2 siguientes en caso de usarlo
+#csl: methods-in-ecology-and-evolution.csl      # no numera mejor en las citas
+csl: acm-sig-proceedings-long-author-list.csl  # numera peor en las citas
+link-citations: yes
+output: 
+  pdf_document:
+    keep_tex: no
+    number_sections: yes
+    citation_package: natbib  # comentado usa: pandoc-citeproc
+    #toc: yes
+    fig_caption: yes
+    template: latex/templateMemoriaTFE.tex
+    includes:
+      #before_body: portadas/latex_paginatitulo_modTFE.tex
+      #in_header: latex/latex_preambulo.tex
+      #after_body: latex/latex_antes_enddoc.tex
+---
+
+
+
+```{r include=FALSE}
+knitr::opts_chunk$set(fig.path = 'figurasR/',
+                      echo = FALSE, warning = FALSE, message = FALSE,
+                      fig.pos="H",fig.align="center",out.width="95%",
+                      cache=FALSE)
+
+```
+
+
+<!-- \setcounter{chapter}{2} -->
+<!-- \setcounter{chapter}{2} escribir 2 para capítulo 3  -->
+<!-- \pagenumbering{arabic} -->
+
+\ifdefined\ifprincipal
+\else
+\setlength{\parindent}{1em}
+\pagestyle{fancy}
+\setcounter{tocdepth}{4}
+\tableofcontents
+<!-- \nocite{*} -->
+\fi
+
+\ifdefined\ifdoblecara
+\fancyhead{}{}
+\fancyhead[LE,RO]{\scriptsize\rightmark}
+\fancyfoot[LO,RE]{\scriptsize\slshape \leftmark}
+\fancyfoot[C]{}
+\fancyfoot[LE,RO]{\footnotesize\thepage}
+\else
+\fancyhead{}{}
+\fancyhead[RO]{\scriptsize\rightmark}
+\fancyfoot[LO]{\scriptsize\slshape \leftmark}
+\fancyfoot[C]{}
+\fancyfoot[RO]{\footnotesize\thepage}
+\fi
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+
+# Análisis exploratorio
+
+Resulta impensable hoy en día tomar una decisión adecuada en cualquier ámbito partiendo del desconocimiento, por lo que se considera fundamental el valor y potencial de los datos, así como toda información disponible a la hora de tomar una decisión, puesto que el realizar una selección errónea y/o representación visual inadecuada de los datos puede dificultar o incluso imposibilitar el proceso de extracción de la información, y conllevar a una toma de decisión inadecuada. Es por ello que se ha tomado en cuenta el uso de tecnologías avanzadas para la realización del análisis y el tratamiento de los mismos mediante intérpretes de programación focalizados en el estudio de datos, entre los que podemos destacar Python y R que ofrecen una visualización sencilla y de fácil comprensión para un amplio abanico de consumidores. 
+
+La correcta visualización de los datos permite detectar y comprender las tendencias, los valores atípicos y los patrones ocultos en grandes conjuntos de datos. Existen muchos tipos de herramientas de visualización populares que permiten mostrar la información de manera eficaz como lo son los gráficos de barras para comparaciones, mapas para datos espaciales, gráficos de líneas para datos temporales y el diagrama de dispersión para comparar dos medidas, entre otros.
+
+Dentro de los datos que se analizarán, encontramos:
+
+
+```{r}
+#----------------------------------------------------------------filtro datos segun una condicion y almaceno valores en listas-------------------------------------------------------------------------------
+#agrupo por paises sin hacer filtro
+  df_brand <- data_no_outlier_Mad %>% group_by(brand) %>% 
+   summarise( n=n(), mean_year = mean(year), mean_years= mean(years), mean_price = ceiling(mean(km)), median_price=median(km), variance_price = var(km), sd_price = sd(km)) %>% arrange(n)
+  df_country <- data_no_outlier_Mad %>% group_by(country) %>% 
+   summarise( n=n(), mean_year = ceiling(mean(year)), mean_years= ceiling(mean(years)), mean_price = ceiling(mean(km)), median_price=median(km), variance_price = var(km), sd_price = sd(km)) %>% arrange(n)
+
+#calculo las variables, elimina aquellas que no cumplan condiciones propuestas, como el no tener mas de dos valores por marca, por pais, 
+  # uno agrupa por paises y otro por marcas y dice cuanto hay por cada uno, ademas saca la media de km y la suma total
+  df_country <- data_no_outlier_Mad %>% group_by(country) %>% 
+   summarise( n=n(), mean_year = ceiling(mean(year)), mean_years= ceiling(mean(years)), mean_price = ceiling(mean(km)), median_price=median(km), variance_price = var(km), sd_price = sd(km)) %>% 
+   filter(n>2) %>% arrange(n)
+  df_brand <- data_no_outlier_Mad %>% group_by(brand) %>% 
+   summarise( n=n(), mean_year = mean(year), mean_years= mean(years), mean_price = ceiling(mean(km)), median_price=median(km), variance_price = var(km), sd_price = sd(km)) %>% filter(n>2) %>% arrange(n)
+
+#agrupa en un vector aquellos paises que tengan mas de dos cabezas tractoras y agrupa en un vector aquellas marcas que tengan mas de dos cabezas tractoras
+  countries <- as.vector(data.frame(t(df_country[,1])))
+  brands <- as.vector(data.frame(t(df_brand[,1])))
+
+#en data_no_outlier_Mad solo mantendremos los valores que cumplan las dos condiciones anteriormente planteadas... y veo las diferencia de como cambian las dimensiones
+  #dim(data_no_outlier_Mad) # 4188 10
+  data_no_outlier_Mad <- filter(data_no_outlier_Mad, country %in% countries, brand %in% brands)
+  #dim(data_no_outlier_Mad) # 4173 10
+
+#summary as a dataframe of power, country, years and brand
+  resume07<- rbind(describe(data_no_outlier_Mad$power), describe(data_no_outlier_Mad$price), describe(data_no_outlier_Mad$km), describe(data_no_outlier_Mad$years)) 
+  rownames(resume07) <- c("Power", "Price", "Km", "Year" )
+  
+
+#separo en una lista segun power, country, years y brand
+  list_power <- split(data_no_outlier_Mad, data_no_outlier_Mad$power)
+  list_country <- split(data_no_outlier_Mad, data_no_outlier_Mad$country) 
+  list_years <- split(data_no_outlier_Mad, data_no_outlier_Mad$years) 
+  list_brand <- split(data_no_outlier_Mad, data_no_outlier_Mad$brand)
+
+
+#del cuadro que esta, para el analisis, sacamos un resumen de cada variable y la almaceno en la lista_resumen:
+  df_year <- data_no_outlier_Mad %>% group_by(years) %>% summarise( n=n(), mean_price = ceiling(mean(price)))
+  yearss = df_year[,1:2]
+  brands = df_brand[,1:2]
+  countries = df_country[,1:2]
+  years.categories <- data_no_outlier_Mad %>% group_by(years.category) %>% summarise( n=n()) %>% arrange(n)
+  lista_resumen <- list(yearss, brands, countries, years.categories) #accedo a este lista_resumen[[2]]
+#----------------------------------------------------------------    
+```
+
+```{r  eval=TRUE, echo=FALSE}
+  brands
+```
+
+
+```{r  eval=TRUE, echo=FALSE}
+  countries
+```
+
+
+```{r  eval=TRUE, echo=FALSE}
+  years.categories
+```
+
+
+```{r  eval=TRUE, echo=FALSE}
+  t(yearss)
+```
+
+```{r  eval=TRUE, echo=FALSE}
+  resume07
+  rm(yearss, countries, years.categories, brands)
+```
+
+
+
+
+```{r eval=TRUE, echo=FALSE}
+  plot1<-ggplot(df_brand, aes(x = brand, y = n, fill = brand)) + geom_col() + geom_text(aes(label = n), vjust = 1.5, colour = "black") #bar graphs numbers of cabezas tractoras for every brand
+  plot2<-ggplot(df_brand, aes(x = brand, y = mean_years, colour = brand)) + geom_point() #bar graphs edad promedio of cabezas tractoras for every brand
+  plot1+plot2       ##Bar graph
+```
+En la figura anterior se encuentra representada el conjunto de datos en cuestión teniendo en cuenta las marcas de las cabezas tractoras que se ofrecen en la página web [@EUCamiones] respecto al número medio de edad en el que se ha realizado la matriculación y respecto al número de cabezas tractoras que se encuentran de cada marca. De la gráfica podemos destacar que el mayor número de cabezas tractoras representadas provienen del fabricante de vehículos neerlandés DAF Trucks NV, y que estos presentan una edad promedio de 6,6 años. Además, vemos como los vehículos más antiguos corresponden a las marcas suecas Scania y Volvo, con una edad promedio próxima a los 11 años.
+
+
+```{r eval=TRUE, echo=FALSE}
+  plot3<-ggplot(df_country, aes(x = country, y = n, fill = country)) + geom_col() + geom_text(aes(label = n), vjust = 1.5, colour = "black") #bar graphs numbers of cabezas tractoras for every country
+  plot4<-ggplot(df_country, aes(x = country, y = mean_years, colour = country)) + geom_point() #bar graphs edad promedio of cabezas tractoras for every country
+  plot3+plot4       ##Bar graph
+```
+En el grafico \ref{poner label de la fig anterior} se representó los datos teniendo en cuenta los países en los cuales se encuentra ofertado el vehículo en función del número medio de edad en el que se ha realizado la matriculación y respecto al número de cabezas tractoras que se encuentran de cada país. En esta vemos como Grecia presenta el menor número de vehículos ofertados y, además, presentan el mayor promedio de edad (32 años). Así mismo, vemos como el mayor número de vehículos proviene de Holanda y que los países en los que la edad promedio de los vehículos ofertados más bajo corresponden a España y a Italia.
+
+
+```{r eval=TRUE, echo=FALSE}
+  data_no_outlier_Mad %>% 
+  ggplot() +
+    aes(x = brand, fill= country) +
+    geom_bar( color="black") +
+    facet_grid(country ~ .) +
+    geom_text(aes(label = ..count..), stat = "count", vjust = -0.2, colour = "black")       ##Bar graph
+```
+En el grafico anterior, se puede apreciar una representación gráfica de manera conjunta de entre las marcas de cabezas tractoras y el país donde se está vendiendo el vehículo.
+
+
+
+```{r eval=TRUE, echo=FALSE}
+  ggplot(data_no_outlier_Mad, aes(x = years, y = price, colour = years.category)) +
+    geom_point()      #scatter plots y grafico de dispersion
+```
+A partir del grafico de dispersión representado anteriormente, se aprecia una tendencia negativa en el comportamiento del precio de venta con el paso del tiempo. Si bien hay unos matices diferenciadores en cuanto al comportamiento del precio de venta en los años iniciales y en los años ubicados hacia el final de su vida útil, se aprecia que, a nivel general, a medida que el vehículo sea más antiguo, el precio disminuye. 
+
+
+
+
+
+```{r eval=TRUE, echo=FALSE}
+  ggplot(data_no_outlier_Mad, aes(x = power)) +
+    geom_histogram(fill = "white", colour = "black") +
+    geom_density() +
+    facet_grid(years.category ~ ., scales = "free")     ###histograma
+
+#    ggplot(data_no_outlier_Mad ,aes(x = power, fill= country)) +
+#     geom_histogram( color="black") +
+#     facet_grid(country ~ .)
+```
+En el siguiente grafico \ref{poner label de la fig anterior} se puede observar las diferentes potencias de las cabezas tractoras que se encuentran ofertadas, estas se han separado según un rango de edad prestablecido anteriormente. Dentro de esta se ve como el mayor número de cabezas tractoras suelen presentar una potencia entre los 400 y los 600 CV y tienen una edad media, es decir, entre los valores 3-15 años. Además, se evidencia como tienden aquellos vehículos que presentan una edad superior a tener una potencia inferior, debido principalmente a que, con el paso del tiempo, los avances tecnológicos han traído una mayor potencia en la producción de estas cabezas tractoras.
+
+
+
+<!--
+```{r}
+data_no_outlier_Mad %>% 
+  ggplot() +
+  aes(x = price, y = years, color = country) +
+  geom_point() +
+  facet_grid(country ~ .)
+
+#data_no_outlier_Mad %>% 
+#  ggplot() +
+#  aes(x = years, fill= brand) +
+#  geom_bar( color="black") +
+#  facet_grid(brand ~ .)
+#------------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+Tal y come se comento anteriormente, en esta grafica se puede observar de manera conjunta la cantidad de cabezas tractoras por paises teniendo en cuenta la edad media, dentro de la cual, se ve que salvo en Holanda, todos los paises tienen la misma tendencia donde la mayor cantidad de cabezas tractoras tiene una edad media menor a 10 años.
+-->
+
+
+
+
+
+
+
+<!-- 
+#----------------------------------------GRAPHICS--------------------------------------------------------------------
+#To make the bars narrower or wider, set width in geom_col()
+#To add space between bars within a group, make width smaller and set the value for position_dodge
+#leer lo de library(patchwork) para poner en una misma parte dos graficos diferentes
+# Using plot_layout() to specify the heights of each plot
+#geom_point(shape = 21) para cambiar la forma de los puntos
+# coord_flip() para cambiar eje X e Y
+
+# Set the axis labelse
+##xlab("Age in years")
+##ylab("Height in inches")
+##otra forma scale_x_continuous(name = "Age\n(years)")
+#
+##poner titulo al grafico 
+#ggtitle("Age and Height\nof Schoolchildren")
+
+-->
+
+
+
+
+
+
+
